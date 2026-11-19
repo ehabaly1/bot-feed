@@ -1,5 +1,5 @@
 // Offline shell: the page opens even with no network, showing the last feed it decrypted.
-const VERSION = "1795092902";
+const VERSION = "1795093117";
 const CACHE = "bot-feed-" + VERSION;
 const SHELL = ["./", "index.html", "loader.js", "app.css", "manifest.json",
   "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
