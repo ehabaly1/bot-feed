@@ -4,7 +4,7 @@
   var LOCAL_SLOT = "bf_local_v1";  // comments sent from this device, until the feed includes them
   var DATA_URL = "data.enc.json";
   var te = new TextEncoder(), td = new TextDecoder();
-  var state = { key: null, salt: "", payload: null, lastFetch: 0 };
+  var state = { key: null, salt: "", payload: null, lastFetch: 0, refreshWatchUntil: 0, refreshTimer: null };
 
   function $(id) { return document.getElementById(id); }
   function b64d(s) { var bin = atob(s), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
@@ -68,14 +68,64 @@
     });
     return local.reverse().concat(state.payload.orders || []).slice(0, 50);
   }
-  async function maybeRefresh() {
-    if (Date.now() - state.lastFetch < 60000) return;
+  async function maybeRefresh(force) {
+    if (!force && Date.now() - state.lastFetch < 60000) return;
     state.lastFetch = Date.now();
     try {
       var doc = await fetchDoc();
       if (doc.salt !== state.salt) { localStorage.removeItem(KEY_SLOT); location.reload(); return; }
-      state.payload = await decrypt(state.key, doc);
+      var next = await decrypt(state.key, doc);
+      var prevUpdated = state.payload && state.payload.feed && state.payload.feed.updated;
+      var nextUpdated = next && next.feed && next.feed.updated;
+      state.payload = next;
+      if (nextUpdated && nextUpdated !== prevUpdated) {
+        try { window.dispatchEvent(new Event("botfeed:updated")); } catch (e2) { /* ignore */ }
+      }
     } catch (e) { /* offline or box-independent hiccup: keep last data */ }
+  }
+
+  function startRefreshWatch() {
+    state.refreshWatchUntil = Date.now() + 10 * 60 * 1000;
+    if (state.refreshTimer) clearInterval(state.refreshTimer);
+    state.refreshTimer = setInterval(function () {
+      if (Date.now() > state.refreshWatchUntil) {
+        clearInterval(state.refreshTimer);
+        state.refreshTimer = null;
+        return;
+      }
+      maybeRefresh(true);
+    }, 60000);
+  }
+
+  async function requestRefresh() {
+    var btn = $("feed-refresh-btn");
+    var note = $("feed-refresh-note");
+    if (btn) btn.disabled = true;
+    if (note) {
+      note.hidden = false;
+      note.textContent = "Refresh requested — new updates in a few minutes";
+    }
+    try {
+      await relay({ action: "refresh", bot_id: "", bot_name: "", order: "", order_id: hex(5), post_id: "" });
+    } catch (e) {
+      if (note) note.textContent = "Couldn't request a refresh. Try again in a moment.";
+      if (btn) btn.disabled = false;
+      return;
+    }
+    startRefreshWatch();
+    setTimeout(function () { if (btn) btn.disabled = false; }, 60000);
+  }
+
+  function installRefreshButton() {
+    if ($("feed-refresh-btn")) return;
+    var row = document.querySelector(".feed-head-row") || $("feed-app") || $("root");
+    if (!row) return;
+    var wrap = document.createElement("div");
+    wrap.className = "feed-refresh-wrap";
+    wrap.innerHTML = '<button type="button" class="feed-refresh-btn" id="feed-refresh-btn">Refresh</button><div class="feed-refresh-note" id="feed-refresh-note" hidden></div>';
+    if (row.classList && row.classList.contains("feed-head-row")) row.appendChild(wrap);
+    else row.insertBefore(wrap, row.firstChild);
+    $("feed-refresh-btn").addEventListener("click", requestRefresh);
   }
 
   /* ---- sending ---- */
@@ -139,6 +189,10 @@
       if (path === "/api/ping") return json(200, { ok: true });
       if (path === "/api/order" && method === "POST") return send(body, false);
       if (path === "/api/comment" && method === "POST") return send(body, true);
+      if (path === "/api/refresh" && method === "POST") {
+        try { await requestRefresh(); return json(200, { ok: true }); }
+        catch (e) { return json(502, { ok: false, error: String(e.message || e) }); }
+      }
       return json(404, { ok: false, error: "Not found" });
     };
   }
@@ -151,6 +205,7 @@
     var s = document.createElement("script");
     s.textContent = state.payload.app_js;
     document.body.appendChild(s);
+    installRefreshButton();
   }
 
   async function start() {

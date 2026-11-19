@@ -32,11 +32,18 @@ jobs:
               order = json.loads(AESGCM(base64.b64decode(os.environ["FEED_AES_KEY"])).decrypt(base64.b64decode(iv), base64.b64decode(ct), None))
           except Exception:
               sys.exit("rejected: bad blob")
-          if order.get("action") == "ping":
-              order = {"action": "ping"}
-          elif order.get("action") != "order" or not str(order.get("order", "")).strip() or len(order["order"]) > 4000:
+          action = order.get("action")
+          if action == "ping":
+              keep = {"action": "ping"}
+          elif action == "refresh":
+              keep = {"action": "refresh"}
+              for k in ("bot_id", "bot_name", "order", "order_id", "post_id"):
+                  if k in order:
+                      keep[k] = order[k]
+          elif action != "order" or not str(order.get("order", "")).strip() or len(order["order"]) > 4000:
               sys.exit("rejected: bad order")
-          keep = order if order["action"] == "ping" else {k: order[k] for k in ("action", "bot_id", "bot_name", "order", "order_id", "post_id") if k in order}
+          else:
+              keep = {k: order[k] for k in ("action", "bot_id", "bot_name", "order", "order_id", "post_id") if k in order}
           req = urllib.request.Request(os.environ["WEBHOOK_URL"], data=json.dumps(keep).encode(), method="POST",
               headers={"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["WEBHOOK_KEY"]})
           with urllib.request.urlopen(req, timeout=15) as r:
