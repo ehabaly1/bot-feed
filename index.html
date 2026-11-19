@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bot Feed</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bot Feed">
+  <meta name="theme-color" content="#0e0f12">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="apple-touch-icon.png">
+  <style>
+    html,body{margin:0;background:#0e0f12;color:#f3f4f6}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh}
+    #lock{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;box-sizing:border-box}
+    #lock form{width:100%;max-width:340px;background:#17181d;border:1px solid #2a2c33;border-radius:16px;padding:24px;box-sizing:border-box}
+    #lock h1{font-size:20px;margin:0 0 6px}
+    #lock p{margin:0 0 16px;color:#9ca3af;font-size:14px}
+    #lock input{width:100%;box-sizing:border-box;font-size:17px;padding:12px;border-radius:10px;border:1px solid #2a2c33;background:#0e0f12;color:#f3f4f6}
+    #lock button{margin-top:12px;width:100%;font-size:16px;padding:12px;border:0;border-radius:10px;background:#4f8cff;color:#fff;font-weight:600}
+    #lock button:disabled{opacity:.6}
+    #lockerr{color:#f87171;font-size:14px;min-height:20px;margin-top:10px}
+    #lock[hidden]{display:none!important}
+    #boot{display:none;align-items:center;justify-content:center;min-height:100vh;color:#9ca3af}
+    .relay-copy{margin-left:8px;font-size:12px;background:none;border:1px solid #2a2c33;color:#9ca3af;border-radius:8px;padding:2px 8px}
+  </style>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div id="boot">Opening…</div>
+  <div id="lock" hidden>
+    <form id="lockform" autocomplete="off">
+      <h1>Bot Feed</h1>
+      <p>Enter your passcode. You only need to do this once on this device.</p>
+      <input id="pass" type="password" inputmode="text" autocomplete="current-password" placeholder="Passcode" required>
+      <button id="unlock" type="submit">Open</button>
+      <div id="lockerr" role="alert"></div>
+    </form>
+  </div>
+  <div id="root"></div>
+  <script src="loader.js"></script>
+</body>
+</html>

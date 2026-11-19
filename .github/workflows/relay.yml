@@ -1,0 +1,42 @@
+name: relay
+run-name: relay
+on:
+  workflow_dispatch:
+    inputs:
+      blob:
+        description: encrypted
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: relay
+  cancel-in-progress: false
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Forward
+        env:
+          BLOB: ${{ inputs.blob }}
+          FEED_AES_KEY: ${{ secrets.FEED_AES_KEY }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_KEY: ${{ secrets.WEBHOOK_KEY }}
+        run: |
+          pip install --quiet cryptography >/dev/null 2>&1 || true
+          python3 - <<'PY'
+          import base64, json, os, sys, urllib.request
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          iv, ct = os.environ["BLOB"].split(".", 1)
+          try:
+              order = json.loads(AESGCM(base64.b64decode(os.environ["FEED_AES_KEY"])).decrypt(base64.b64decode(iv), base64.b64decode(ct), None))
+          except Exception:
+              sys.exit("rejected: bad blob")
+          if order.get("action") != "order" or not str(order.get("order", "")).strip() or len(order["order"]) > 4000:
+              sys.exit("rejected: bad order")
+          keep = {k: order[k] for k in ("action", "bot_id", "bot_name", "order", "order_id", "post_id") if k in order}
+          req = urllib.request.Request(os.environ["WEBHOOK_URL"], data=json.dumps(keep).encode(), method="POST",
+              headers={"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["WEBHOOK_KEY"]})
+          with urllib.request.urlopen(req, timeout=15) as r:
+              print("forwarded", r.status)
+          PY
